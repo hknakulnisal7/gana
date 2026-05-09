@@ -1,8 +1,10 @@
 /**
- * @fileoverview Single-file JioSaavn API.
+ * @fileoverview Single-file JioSaavn API Proxy.
  * 
  * Maps directly to the JioSaavn endpoint:
  * https://www.jiosaavn.com/api.php?__call=webapi.get&token={token}&type={type}...
+ * 
+ * Returns 100% raw, original JSON results bypassing any Node.js/Hono parsing.
  */
 
 import { Hono } from 'hono'
@@ -21,36 +23,7 @@ const USER_AGENTS = [
 ]
 
 // ==========================================
-// 2. HELPER FUNCTIONS
-// ==========================================
-
-/**
- * Fetches data from the JioSaavn API using constructed parameters.
- */
-async function fetchJioSaavn(queryParams: Record<string, string>) {
-  // Filter out empty parameters (like an empty 'p' parameter)
-  const cleanParams = Object.fromEntries(
-    Object.entries(queryParams).filter(([_, v]) => v !== '')
-  );
-
-  const queryString = new URLSearchParams(cleanParams).toString()
-  const url = `${BASE_URL}?${queryString}`
-  
-  const headers = {
-    'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
-    'Accept': 'application/json, text/plain, */*',
-    'Origin': 'https://www.jiosaavn.com',
-    'Referer': 'https://www.jiosaavn.com/'
-  }
-  
-  const response = await fetch(url, { method: 'GET', headers })
-  
-  // Return the raw text directly to preserve 100% original formatting
-  return await response.text()
-}
-
-// ==========================================
-// 3. APP & ROUTES
+// 2. APP & ROUTES
 // ==========================================
 
 const app = new Hono()
@@ -58,15 +31,16 @@ const app = new Hono()
 // Enable standard CORS for all routes
 app.use('*', cors())
 
+// Documentation Endpoint
 app.get('/docs', (c) => {
   return c.json({
     service: 'JioSaavn API Proxy',
     site: 'https://gana-rosy.vercel.app/',
-    usage_example: 'https://gana-rosy.vercel.app/?token=qNORzRRGvQA_&type=label&p=1&n_song=10&n_album=14&category=latest&sort_order=desc&language=unknown&includeMetaTags=0&ctx=web6dot0&api_version=4&_format=json&_marker=0',
+    usage_example: 'https://gana-rosy.vercel.app/?token=qNORzRRGvQA_&type=label&p=&n_song=10&n_album=14&category=latest&sort_order=desc&language=unknown&includeMetaTags=0&ctx=web6dot0&api_version=4&_format=json&_marker=0',
     default_parameters: {
       token: "qNORzRRGvQA_",
       type: "label",
-      p: " (empty)",
+      p: " (empty string)",
       n_song: "10",
       n_album: "14",
       category: "latest",
@@ -83,7 +57,7 @@ app.get('/docs', (c) => {
 
 /**
  * ROOT HANDLER: JioSaavn Proxy Endpoint
- * Automatically applies requested default parameters if not provided in the query string.
+ * Automatically applies requested default parameters and returns RAW data.
  */
 app.get('/', async (c) => {
   const q = c.req.query()
@@ -105,7 +79,7 @@ app.get('/', async (c) => {
 
   try {
     // Construct the payload matching the required JioSaavn API structure
-    const payload = {
+    const payload: Record<string, string> = {
       __call: 'webapi.get',
       token,
       type,
@@ -122,13 +96,32 @@ app.get('/', async (c) => {
       _marker: marker
     }
 
-    // Fetch raw data string
-    const rawData = await fetchJioSaavn(payload)
+    // Build Query String
+    const queryString = new URLSearchParams(payload).toString()
+    const url = `${BASE_URL}?${queryString}`
+
+    // Randomize User-Agent to prevent blocking
+    const headers = {
+      'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)],
+      'Accept': 'application/json, text/plain, */*',
+      'Origin': 'https://www.jiosaavn.com',
+      'Referer': 'https://www.jiosaavn.com/'
+    }
+
+    // Fetch the data from JioSaavn
+    const response = await fetch(url, { method: 'GET', headers })
     
-    // Return exactly as received, tagged as JSON
-    return c.text(rawData, 200, {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
+    // EXTREMELY IMPORTANT: Grab the exact text, DO NOT parse it with JSON.parse()
+    const rawText = await response.text()
+
+    // Return the raw text as a standard Response, telling the browser it is JSON
+    // This guarantees you get the 100% original results exactly as you pasted above
+    return new Response(rawText, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*'
+      }
     })
 
   } catch (error: any) {
