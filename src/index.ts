@@ -45,20 +45,8 @@ async function fetchJioSaavn(queryParams: Record<string, string>) {
   
   const response = await fetch(url, { method: 'GET', headers })
   
-  // JioSaavn sometimes returns invalid trailing characters or BOM, so we text-parse safely
-  const textResponse = await response.text()
-  
-  try {
-    return JSON.parse(textResponse)
-  } catch (err) {
-    // Attempt to clean the response if standard parsing fails 
-    // (JioSaavn API sometimes has leading/trailing non-JSON data in raw outputs)
-    const jsonMatch = textResponse.match(/{.*}/s);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-    throw new Error('Invalid JSON response from JioSaavn');
-  }
+  // Return the raw text directly to preserve 100% original formatting
+  return await response.text()
 }
 
 // ==========================================
@@ -134,9 +122,14 @@ app.get('/', async (c) => {
       _marker: marker
     }
 
-    // Fetch and return the data
-    const data = await fetchJioSaavn(payload)
-    return c.json(data)
+    // Fetch raw data string
+    const rawData = await fetchJioSaavn(payload)
+    
+    // Return exactly as received, tagged as JSON
+    return c.text(rawData, 200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*'
+    })
 
   } catch (error: any) {
     console.error('JioSaavn Fetch Error:', error.message)
