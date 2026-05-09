@@ -70,6 +70,29 @@ const app = new Hono()
 // Enable standard CORS for all routes
 app.use('*', cors())
 
+app.get('/docs', (c) => {
+  return c.json({
+    service: 'JioSaavn API Proxy',
+    site: 'https://gana-rosy.vercel.app/',
+    usage_example: 'https://gana-rosy.vercel.app/?token=qNORzRRGvQA_&type=label&p=1&n_song=10&n_album=14&category=latest&sort_order=desc&language=unknown&includeMetaTags=0&ctx=web6dot0&api_version=4&_format=json&_marker=0',
+    default_parameters: {
+      token: "qNORzRRGvQA_",
+      type: "label",
+      p: " (empty)",
+      n_song: "10",
+      n_album: "14",
+      category: "latest",
+      sort_order: "desc",
+      language: "unknown",
+      includeMetaTags: "0",
+      ctx: "web6dot0",
+      api_version: "4",
+      _format: "json",
+      _marker: "0"
+    }
+  })
+})
+
 /**
  * ROOT HANDLER: JioSaavn Proxy Endpoint
  * Automatically applies requested default parameters if not provided in the query string.
